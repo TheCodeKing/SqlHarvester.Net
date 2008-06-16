@@ -1,0 +1,84 @@
+﻿<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.50727</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{E89FD358-4BF5-4A16-B4DA-18490720ABCC}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>CodeKing.SqlHarvester</RootNamespace>
+    <AssemblyName>SqlHarvester</AssemblyName>
+    <SignAssembly>false</SignAssembly>
+    <AssemblyOriginatorKeyFile>
+    </AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.configuration" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CodeKing.SqlHarvester.Core\CodeKing.SqlHarvester.Core.csproj">
+      <Project>{31F44B96-E00A-42FF-8C25-D8E1A39B0786}</Project>
+      <Name>CodeKing.SqlHarvester.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CodeKing.SqlHarvester.Engine\CodeKing.SqlHarvester.Engine.csproj">
+      <Project>{3AFF0941-D328-4C3A-837C-A6239C339AF1}</Project>
+      <Name>CodeKing.SqlHarvester.Engine</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <None Include="App.Release.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+  <PropertyGroup>
+    <PostBuildEvent>set ILMerge="$(SolutionDir)..\tools\ILMerge\ILMerge.exe"
+set InputDir=$(TargetDir)
+set InputFiles=SqlHarvester.exe CodeKing.SqlHarvester.Core.dll CodeKing.SqlHarvester.Engine.dll
+set OutputDir=$(SolutionDir)Bin
+set OutputRootName=SqlHarvester
+set OutputFile="%25OutputDir%25\%25OutputRootName%25.exe"
+
+pushd %25InputDir%25
+%25ILMerge%25 /out:%25OutputFile%25 %25InputFiles%25
+
+copy /Y "$(TargetDir)App.Release.config" "%25OutputDir%25\SqlHarvester.exe.config"
+
+popd
+
+</PostBuildEvent>
+  </PropertyGroup>
+</Project>

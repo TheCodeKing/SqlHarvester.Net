@@ -1,0 +1,25 @@
+Declare @Constraints Table(id int IDENTITY(1,1) NOT NULL,sql nvarchar(max))
+
+INSERT INTO @Constraints
+SELECT	'ALTER TABLE [dbo].['+OBJECT_NAME(parent_object_id)+'] {check} CONSTRAINT ['+OBJECT_NAME(object_id)+']' as Sql 
+FROM	sys.foreign_keys k 
+WHERE	referenced_object_id = OBJECT_ID(N'{tablename}') or parent_object_id = OBJECT_ID(N'{tablename}')
+
+Declare @Temp nvarchar(max),
+		@id int
+
+WHILE exists(SELECT * FROM @Constraints)
+BEGIN
+
+  SELECT	@temp = sql, @id=id
+  FROM		@Constraints d
+  ORDER BY	id desc
+
+  DELETE	d
+  FROM		@Constraints d
+  WHERE		id=@id
+
+  EXEC sp_executesql @statement=@temp
+
+END
+GO
