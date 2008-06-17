@@ -5,6 +5,7 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Configuration;
 using System.Diagnostics;
+using CodeKing.SqlHarvester.Data;
 
 namespace CodeKing.SqlHarvester.Data
 {
