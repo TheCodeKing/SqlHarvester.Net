@@ -1,27 +1,57 @@
 using System;
-using System.Collections.Generic;
-using System.Text;
-using System.IO;
-using System.Resources;
-using System.Reflection;
-using CodeKing.SqlHarvester.Properties;
-using System.Text.RegularExpressions;
 using System.Data;
+using System.IO;
+using System.Text;
+
+using CodeKing.SqlHarvester.Core;
+using CodeKing.SqlHarvester.Core.Data;
 using CodeKing.SqlHarvester.Data;
 
 namespace CodeKing.SqlHarvester
 {
     internal class SqlSeeder : ISeeder
     {
-        private StreamReader reader;
-        private string outputDirectory;
+        #region Constants and Fields
+
+        private readonly string outputDirectory;
+
         private IDataCommand database;
+
+        private StreamReader itemReader;
+
+        #endregion
+
+        #region Constructors and Destructors
 
         public SqlSeeder(IDataCommand database, string outputDirectory)
         {
             this.outputDirectory = outputDirectory;
             this.database = database;
         }
+
+        #endregion
+
+        #region Implemented Interfaces
+
+        #region IDisposable
+
+        public void Dispose()
+        {
+            if (database != null)
+            {
+                database.Rollback();
+                database = null;
+            }
+            if (itemReader != null)
+            {
+                itemReader.Close();
+                itemReader = null;
+            }
+        }
+
+        #endregion
+
+        #region ISeeder
 
         public string[] GetFiles()
         {
@@ -39,9 +69,9 @@ namespace CodeKing.SqlHarvester
             }
             using (FileStream strm = file.OpenRead())
             {
-                using (StreamReader reader = new StreamReader(strm))
+                using (var reader = new StreamReader(strm))
                 {
-                    StringBuilder builder = new StringBuilder();
+                    var builder = new StringBuilder();
                     while (!reader.EndOfStream)
                     {
                         string query = reader.ReadLine();
@@ -56,14 +86,19 @@ namespace CodeKing.SqlHarvester
                             builder.Append(query);
                         }
                     }
-                    if (builder != null && builder.Length > 0)
+                    if (builder.Length > 0)
                     {
                         ExecuteSql(builder.ToString());
-                        builder = new StringBuilder();
                     }
                 }
             }
         }
+
+        #endregion
+
+        #endregion
+
+        #region Methods
 
         private void ExecuteSql(string query)
         {
@@ -91,21 +126,8 @@ namespace CodeKing.SqlHarvester
                 return false;
             }
             return true;
-
         }
 
-        public void Dispose()
-        {
-            if (database != null)
-            {
-                database.Rollback();
-                database = null;
-            }
-            if (reader != null)
-            {
-                reader.Close();
-                reader = null;
-            }
-        }
+        #endregion
     }
 }

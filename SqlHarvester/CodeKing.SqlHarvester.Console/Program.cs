@@ -1,21 +1,22 @@
 using System;
-using System.Collections.Generic;
-using System.Text;
-using System.IO;
-using CodeKing.SqlHarvester.Configuration;
 using System.Configuration;
 using System.Diagnostics;
 
+using CodeKing.SqlHarvester.Configuration;
+using CodeKing.SqlHarvester.Core;
+
 namespace CodeKing.SqlHarvester
 {
-    class Program
+    internal class Program
     {
-        static int Main(string[] args)
+        #region Methods
+
+        private static int Main(string[] args)
         {
             try
             {
                 SqlHarvesterConfiguration config = SqlHarvesterConfiguration.Default;
-                using (HarvestService service = new HarvestService(config))
+                using (var service = new HarvestService(config))
                 {
                     service.ImportConfiguration(args);
                     if (config.IsVerbose)
@@ -27,15 +28,15 @@ namespace CodeKing.SqlHarvester
                     {
                         WriteUsage();
                         return 0;
-                    } 
-                    else if (config.Mode == Mode.Export)
+                    }
+                    if (config.Mode == Mode.Export)
                     {
                         Trace.WriteLineIf(Tracer.Trace.TraceVerbose, "Begin scripting...");
-                        FileInfo[] files = service.Export();
+                        service.Export();
                         Trace.WriteLineIf(Tracer.Trace.TraceVerbose, "Scripting success...");
                         return 0;
                     }
-                    else if (config.Mode == Mode.Import)
+                    if (config.Mode == Mode.Import)
                     {
                         Trace.WriteLineIf(Tracer.Trace.TraceVerbose, "Begin seeding...");
                         if (service.Import())
@@ -43,15 +44,9 @@ namespace CodeKing.SqlHarvester
                             Trace.WriteLineIf(Tracer.Trace.TraceVerbose, "Seeding seeding...");
                             return 0;
                         }
-                        else
-                        {
-                            return 5;
-                        }
+                        return 5;
                     }
-                    else
-                    {
-                        return 4;
-                    }
+                    return 4;
                 }
             }
             catch (ConfigurationErrorsException ce)
@@ -92,5 +87,7 @@ namespace CodeKing.SqlHarvester
             Console.WriteLine("    Specifies the output verbose level (0-4).");
             Console.WriteLine();
         }
+
+        #endregion
     }
 }

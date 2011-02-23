@@ -1,26 +1,35 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.IO;
-using CodeKing.SqlHarvester.Data;
-using System.Configuration;
-using CodeKing.SqlHarvester.Configuration;
 using System.Data;
 using System.Diagnostics;
+using System.IO;
+
+using CodeKing.SqlHarvester.Configuration;
+using CodeKing.SqlHarvester.Core;
+using CodeKing.SqlHarvester.Core.Data;
+using CodeKing.SqlHarvester.Data;
 
 namespace CodeKing.SqlHarvester
 {
     internal class HarvestService : IDisposable
     {
-        private SqlHarvesterConfiguration sqlConfiguration;
-        private IDataCommand database;
+        #region Constants and Fields
+
+        private readonly IDataCommand database;
+
+        private readonly SqlHarvesterConfiguration sqlConfiguration;
+
         private int index = 1000;
+
+        #endregion
+
+        #region Constructors and Destructors
 
         /// <summary>
         /// Initializes a new instance of the <see cref="HarvestService"/> class.
         /// </summary>
         public HarvestService()
-            :this(SqlHarvesterConfiguration.Default)
+            : this(SqlHarvesterConfiguration.Default)
         {
         }
 
@@ -31,8 +40,12 @@ namespace CodeKing.SqlHarvester
         public HarvestService(SqlHarvesterConfiguration sqlConfiguration)
         {
             this.sqlConfiguration = sqlConfiguration;
-            this.database = new Database(sqlConfiguration.ConnectionString);
+            database = new Database(sqlConfiguration.ConnectionString);
         }
+
+        #endregion
+
+        #region Public Methods
 
         /// <summary>
         /// Creates the harvestor.
@@ -53,26 +66,6 @@ namespace CodeKing.SqlHarvester
         public virtual ISeeder CreateSeeder()
         {
             return new SqlSeeder(database, sqlConfiguration.OutputDirectory);
-        }
-
-        /// <summary>
-        /// Imports scripts into a target database.
-        /// </summary>
-        /// <returns></returns>
-        public bool Import()
-        {
-            using (ISeeder seeder = CreateSeeder())
-            {
-                database.BeginTransaction();
-                string[] files = seeder.GetFiles();
-                foreach (string file in files)
-                {
-                    Trace.WriteLineIf(Tracer.Trace.TraceInfo, string.Format(" * {0}", Path.GetFileName(file)));
-                    seeder.ImportFile(file);
-                }
-                database.Commit();
-            }
-            return true;
         }
 
         /// <summary>
@@ -111,7 +104,8 @@ namespace CodeKing.SqlHarvester
                     else
                     {
                         // no content, abort file
-                        Trace.WriteLineIf(Tracer.Trace.TraceVerbose, string.Format("Abort table {0} as no content", info.Name));
+                        Trace.WriteLineIf(
+                            Tracer.Trace.TraceVerbose, string.Format("Abort table {0} as no content", info.Name));
                         harvester.Cancel();
                     }
                 }
@@ -119,28 +113,24 @@ namespace CodeKing.SqlHarvester
             return files.ToArray();
         }
 
-        private ScriptInfoCollection ParseCollection(ScriptInfoCollection config)
+        /// <summary>
+        /// Imports scripts into a target database.
+        /// </summary>
+        /// <returns></returns>
+        public bool Import()
         {
-            if (config.Contains("*"))
+            using (ISeeder seeder = CreateSeeder())
             {
-                using (IDbCommand cmd = database.CreateCommand("Select Object_Name(object_id) as TableName From sys.objects Where type='U'"))
+                database.BeginTransaction();
+                string[] files = seeder.GetFiles();
+                foreach (string file in files)
                 {
-                    cmd.CommandType = CommandType.Text;
-                    using (IDataReader reader = database.ExecuteReader(cmd))
-                    {
-                        ScriptInfoCollection collection = new ScriptInfoCollection();
-                        while (reader.Read())
-                        {
-                            collection.Add(new ScriptInfo((string)reader["TableName"], string.Empty, config["*"].ScriptMode));
-                        }
-                        return collection;
-                    }
+                    Trace.WriteLineIf(Tracer.Trace.TraceInfo, string.Format(" * {0}", Path.GetFileName(file)));
+                    seeder.ImportFile(file);
                 }
+                database.Commit();
             }
-            else
-            {
-                return config;
-            }
+            return true;
         }
 
         /// <summary>
@@ -152,22 +142,22 @@ namespace CodeKing.SqlHarvester
             foreach (string arg in args)
             {
                 string key, value;
-                key = arg.TrimStart(new char[] { '-', '/' });
+                key = arg.TrimStart(new[] { '-', '/' });
                 if (key.StartsWith("tables:"))
                 {
                     if (sqlConfiguration is SqlHarvesterConfiguration)
                     {
-                        SqlHarvesterConfiguration sqlConfig = sqlConfiguration as SqlHarvesterConfiguration;
-                        value = key.Split(new char[] { ':' }, 2)[1];
+                        SqlHarvesterConfiguration sqlConfig = sqlConfiguration;
+                        value = key.Split(new[] { ':' }, 2)[1];
                         sqlConfig.ScriptInfoCollection.Clear();
                         CreateTablesStack(value, sqlConfig);
                     }
-                } 
+                }
                 else
                 {
                     if (key.Contains(":"))
                     {
-                        string[] props = key.Split(new char[] { ':' }, 2);
+                        string[] props = key.Split(new[] { ':' }, 2);
                         key = props[0].Trim().TrimStart('"').TrimEnd('\"');
                         value = props[1].Trim().TrimStart('"').TrimEnd('\"');
                     }
@@ -182,8 +172,31 @@ namespace CodeKing.SqlHarvester
                     sqlConfiguration[key] = value;
                 }
             }
-            this.database.ConnectionString = sqlConfiguration.ConnectionString;
+            database.ConnectionString = sqlConfiguration.ConnectionString;
         }
+
+        #endregion
+
+        #region Implemented Interfaces
+
+        #region IDisposable
+
+        /// <summary>
+        /// Releases unmanaged and - optionally - managed resources
+        /// </summary>
+        public void Dispose()
+        {
+            if (database != null)
+            {
+                database.Rollback();
+            }
+        }
+
+        #endregion
+
+        #endregion
+
+        #region Methods
 
         private void CreateTablesStack(string value, SqlHarvesterConfiguration configuration)
         {
@@ -198,15 +211,34 @@ namespace CodeKing.SqlHarvester
             }
         }
 
-        /// <summary>
-        /// Releases unmanaged and - optionally - managed resources
-        /// </summary>
-        public void Dispose()
+        private ScriptInfoCollection ParseCollection(ScriptInfoCollection config)
         {
-            if (database!=null)
+            if (config.Contains("*"))
             {
-                database.Rollback();
+                using (
+                    IDbCommand cmd =
+                        database.CreateCommand(
+                            "Select Object_Name(object_id) as TableName From sys.objects Where type='U'"))
+                {
+                    cmd.CommandType = CommandType.Text;
+                    using (IDataReader reader = database.ExecuteReader(cmd))
+                    {
+                        ScriptInfoCollection collection = new ScriptInfoCollection();
+                        while (reader.Read())
+                        {
+                            collection.Add(
+                                new ScriptInfo((string)reader["TableName"], string.Empty, config["*"].ScriptMode));
+                        }
+                        return collection;
+                    }
+                }
+            }
+            else
+            {
+                return config;
             }
         }
+
+        #endregion
     }
 }

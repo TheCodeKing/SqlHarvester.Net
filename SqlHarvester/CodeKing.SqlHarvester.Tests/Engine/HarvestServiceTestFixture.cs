@@ -1,21 +1,27 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
+using CodeKing.SqlHarvester.Core;
+
 using NUnit.Framework;
-using CodeKing.SqlHarvester;
+
 using Rhino.Mocks;
-using CodeKing.SqlHarvester.Data;
-using System.IO;
 
 namespace CodeKing.SqlHarvester.Tests.Engine
 {
     [TestFixture]
     public class HarvestServiceTestFixture
     {
-        private MockRepository mocker;
-        private HarvestService service;
+        #region Constants and Fields
+
         private IHarvester harvestor;
+
+        private MockRepository mocker;
+
         private ISqlScripter scripter;
+
+        private HarvestService service;
+
+        #endregion
+
+        #region Public Methods
 
         [SetUp]
         public void SetUp()
@@ -34,18 +40,16 @@ namespace CodeKing.SqlHarvester.Tests.Engine
             //
         }
 
-
         [Test]
         public void WithContentScript()
         {
-     
         }
 
         [Test]
         public void WithoutContentScript()
         {
-     
         }
 
+        #endregion
     }
 }

@@ -1,43 +1,36 @@
 using System;
-using System.Collections.Generic;
-using System.Text;
-using System.IO;
 using System.Data;
 
-namespace CodeKing.SqlHarvester
+namespace CodeKing.SqlHarvester.Core
 {
     public interface ISqlScripter : IDisposable
     {
-        bool HasSeedIdentityKey
-        {
-            get;
-        }
+        #region Properties
 
-        bool HasPrimaryKey
-        {
-            get;
-        }
+        DataColumnCollection Columns { get; }
 
-        bool HasNonPrimaryKey
-        {
-            get;
-        }
+        bool HasNonPrimaryKey { get; }
 
-        DataColumnCollection Columns
-        {
-            get;
-        }
+        bool HasPrimaryKey { get; }
+
+        bool HasSeedIdentityKey { get; }
+
+        #endregion
+
+        #region Public Methods
+
+        IDataReader ExecuteForContent(string query);
 
         string GetParameterName(DataColumn column);
 
         string GetSqlDataType(DataColumn column);
 
+        string GetTest(DataColumn column);
+
         bool IsActive(DataColumn column);
 
         bool IsPrimaryKey(DataColumn column);
 
-        string GetTest(DataColumn column);
-
-        IDataReader ExecuteForContent(string query);
-   }
+        #endregion
+    }
 }

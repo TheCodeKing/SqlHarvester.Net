@@ -1,24 +1,35 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.IO;
-using System.Resources;
-using System.Reflection;
-using CodeKing.SqlHarvester.Properties;
-using System.Text.RegularExpressions;
 using System.Data;
+using System.IO;
+using System.Text.RegularExpressions;
+
+using CodeKing.SqlHarvester.Core;
+using CodeKing.SqlHarvester.Properties;
 
 namespace CodeKing.SqlHarvester
 {
     internal class SqlHarvester : IHarvester
     {
-        private ISqlScripter sqlScripter;
-        private ScriptInfo scriptInfo;
+        #region Constants and Fields
+
+        private readonly FileInfo file;
+
+        private readonly int index;
+
+        private readonly ScriptInfo scriptInfo;
+
+        private readonly ISqlScripter sqlScripter;
+
+        private const int batchSize = 20;
+
+        private int counter;
+
         private StreamWriter writer;
-        private FileInfo file;
-        private int batchSize = 20;
-        private int counter = 0;
-        private int index;
+
+        #endregion
+
+        #region Constructors and Destructors
 
         public SqlHarvester(SqlScripterFactory factory, ScriptInfo scriptInfo, string outputDirectory, int index)
         {
@@ -31,83 +42,40 @@ namespace CodeKing.SqlHarvester
                 throw new ArgumentException("factory");
             }
             this.index = index;
-            this.sqlScripter = factory.CreateInstance(scriptInfo);
+            sqlScripter = factory.CreateInstance(scriptInfo);
             this.scriptInfo = scriptInfo;
-            this.file = GetFile(outputDirectory);
+            file = GetFile(outputDirectory);
             Stream stream = file.Open(FileMode.Create, FileAccess.Write, FileShare.Read);
-            this.writer = new StreamWriter(stream);
+            writer = new StreamWriter(stream);
         }
 
-        private FileInfo GetFile(string outputDirectory)
+        #endregion
+
+        #region Implemented Interfaces
+
+        #region IDisposable
+
+        public void Dispose()
         {
-            if (!Directory.Exists(outputDirectory))
+            if (writer != null)
             {
-                Directory.CreateDirectory(outputDirectory);
+                writer.Close();
+                writer = null;
             }
-            return new FileInfo(Path.Combine(outputDirectory, string.Concat(index,".", CleanName(scriptInfo.Name), ".sql")));
         }
 
-        private string CleanName(string name)
+        #endregion
+
+        #region IHarvester
+
+        public void Cancel()
         {
-            foreach (char c in Path.GetInvalidFileNameChars())
+            writer.Close();
+            writer = null;
+            if (file.Exists)
             {
-                name = name.Replace(Convert.ToString(c), string.Empty);
+                file.Delete();
             }
-            return name;
-        }
-
-        public FileInfo WriteHeader()
-        {
-            writer.WriteLine(string.Format("/* Scripting table {0} **/", scriptInfo.QualifiedName));
-            writer.WriteLine();
-
-            writer.WriteLine(Resources.on_count);
-            writer.WriteLine("GO");
-            writer.WriteLine();
-
-            WriteConstraints(true);
-
-            if (scriptInfo.ScriptMode == ScriptMode.Delete)
-            {
-                string queryString;
-                if (string.IsNullOrEmpty(scriptInfo.Filter))
-                {
-                    queryString = string.Format("DELETE FROM {0}", scriptInfo.QualifiedName);
-                }
-                else
-                {
-                    queryString = string.Format("DELETE FROM {0} WHERE {1}", scriptInfo.QualifiedName, scriptInfo.Filter);
-                }
-                writer.WriteLine(queryString);
-                writer.WriteLine("GO");
-                writer.WriteLine();
-            }
-  
-            string proc;
-            if (sqlScripter.HasPrimaryKey && sqlScripter.HasNonPrimaryKey)
-            {
-                proc = Resources.insert_update;
-            }
-            else if (sqlScripter.HasPrimaryKey)
-            {
-                proc = Resources.checked_insert;
-            }
-            else
-            {
-                proc = Resources.insert;
-            }
-            writer.WriteLine(ReplaceTokens(proc));
-
-            return file;
-        }
-
-        private void WriteConstraints(bool drop)
-        {
-            string constraints = Resources.constraints;
-            constraints = Regex.Replace(constraints, "{check}", drop?"NOCHECK":"CHECK", RegexOptions.IgnoreCase);
-            constraints = Regex.Replace(constraints, "{tablename}", scriptInfo.Name, RegexOptions.IgnoreCase);
-            writer.WriteLine(constraints);
-            writer.WriteLine();
         }
 
         public bool WriteContent()
@@ -157,6 +125,78 @@ namespace CodeKing.SqlHarvester
             WriteConstraints(false);
         }
 
+        public FileInfo WriteHeader()
+        {
+            writer.WriteLine(string.Format("/* Scripting table {0} **/", scriptInfo.QualifiedName));
+            writer.WriteLine();
+
+            writer.WriteLine(Resources.on_count);
+            writer.WriteLine("GO");
+            writer.WriteLine();
+
+            WriteConstraints(true);
+
+            if (scriptInfo.ScriptMode == ScriptMode.Delete)
+            {
+                string queryString;
+                if (string.IsNullOrEmpty(scriptInfo.Filter))
+                {
+                    queryString = string.Format("DELETE FROM {0}", scriptInfo.QualifiedName);
+                }
+                else
+                {
+                    queryString = string.Format(
+                        "DELETE FROM {0} WHERE {1}", scriptInfo.QualifiedName, scriptInfo.Filter);
+                }
+                writer.WriteLine(queryString);
+                writer.WriteLine("GO");
+                writer.WriteLine();
+            }
+
+            string proc;
+            if (sqlScripter.HasPrimaryKey && sqlScripter.HasNonPrimaryKey)
+            {
+                proc = Resources.insert_update;
+            }
+            else if (sqlScripter.HasPrimaryKey)
+            {
+                proc = Resources.checked_insert;
+            }
+            else
+            {
+                proc = Resources.insert;
+            }
+            writer.WriteLine(ReplaceTokens(proc));
+
+            return file;
+        }
+
+        #endregion
+
+        #endregion
+
+        #region Methods
+
+        private string CleanName(string name)
+        {
+            foreach (char c in Path.GetInvalidFileNameChars())
+            {
+                name = name.Replace(Convert.ToString(c), string.Empty);
+            }
+            return name;
+        }
+
+        private FileInfo GetFile(string outputDirectory)
+        {
+            if (!Directory.Exists(outputDirectory))
+            {
+                Directory.CreateDirectory(outputDirectory);
+            }
+            return
+                new FileInfo(
+                    Path.Combine(outputDirectory, string.Concat(index, ".", CleanName(scriptInfo.Name), ".sql")));
+        }
+
         private string ReplaceTokens(string input)
         {
             input = Regex.Replace(input, "{tablename}", scriptInfo.QualifiedName, RegexOptions.IgnoreCase);
@@ -169,13 +209,13 @@ namespace CodeKing.SqlHarvester
             {
                 if (sqlScripter.IsActive(item))
                 {
-                    string param = string.Format("{0} {1}", sqlScripter.GetParameterName(item), sqlScripter.GetSqlDataType(item));
+                    string param = string.Format(
+                        "{0} {1}", sqlScripter.GetParameterName(item), sqlScripter.GetSqlDataType(item));
                     columns.Add(param);
                     if (sqlScripter.IsPrimaryKey(item))
                     {
                         param = sqlScripter.GetTest(item);
                         whereClause.Add(param);
-                        
                     }
                     else
                     {
@@ -186,23 +226,42 @@ namespace CodeKing.SqlHarvester
                     columnNames.Add(string.Concat("[", item.ColumnName, "]"));
                 }
             }
-            input = Regex.Replace(input, "{columns}", string.Concat("\r\n\t\t ", string.Join("\r\n\t\t,", columnNames.ToArray())), RegexOptions.IgnoreCase);
-            input = Regex.Replace(input, "{parameters}", string.Concat("\t ", string.Join("\r\n\t,", columns.ToArray())), RegexOptions.IgnoreCase);
-            input = Regex.Replace(input, "{setclause}", string.Concat(" ",string.Join("\r\n\t\t\t\t,", setClause.ToArray())), RegexOptions.IgnoreCase);
-            input = Regex.Replace(input, "{whereclause}", string.Concat(" ", string.Join("\r\n\t\t\t\t AND ", whereClause.ToArray())), RegexOptions.IgnoreCase);
-            input = Regex.Replace(input, "{values}", string.Concat("\r\n\t\t ", string.Join("\r\n\t\t,", insertParams.ToArray())), RegexOptions.IgnoreCase);
- 
+            input = Regex.Replace(
+                input,
+                "{columns}",
+                string.Concat("\r\n\t\t ", string.Join("\r\n\t\t,", columnNames.ToArray())),
+                RegexOptions.IgnoreCase);
+            input = Regex.Replace(
+                input,
+                "{parameters}",
+                string.Concat("\t ", string.Join("\r\n\t,", columns.ToArray())),
+                RegexOptions.IgnoreCase);
+            input = Regex.Replace(
+                input,
+                "{setclause}",
+                string.Concat(" ", string.Join("\r\n\t\t\t\t,", setClause.ToArray())),
+                RegexOptions.IgnoreCase);
+            input = Regex.Replace(
+                input,
+                "{whereclause}",
+                string.Concat(" ", string.Join("\r\n\t\t\t\t AND ", whereClause.ToArray())),
+                RegexOptions.IgnoreCase);
+            input = Regex.Replace(
+                input,
+                "{values}",
+                string.Concat("\r\n\t\t ", string.Join("\r\n\t\t,", insertParams.ToArray())),
+                RegexOptions.IgnoreCase);
+
             return input;
         }
 
-        public void Cancel()
+        private void WriteConstraints(bool drop)
         {
-            writer.Close();
-            writer = null;
-            if (file.Exists)
-            {
-                file.Delete();
-            }
+            string constraints = Resources.constraints;
+            constraints = Regex.Replace(constraints, "{check}", drop ? "NOCHECK" : "CHECK", RegexOptions.IgnoreCase);
+            constraints = Regex.Replace(constraints, "{tablename}", scriptInfo.Name, RegexOptions.IgnoreCase);
+            writer.WriteLine(constraints);
+            writer.WriteLine();
         }
 
         private void WriteDataContent(IDataReader reader)
@@ -247,7 +306,8 @@ namespace CodeKing.SqlHarvester
                 writer.Write("=");
                 if (type == typeof(Byte[]))
                 {
-                    writer.Write((string.Concat("0x", BitConverter.ToString((Byte[])reader[index]).Replace("-", string.Empty))));
+                    writer.Write(
+                        (string.Concat("0x", BitConverter.ToString((Byte[])reader[index]).Replace("-", string.Empty))));
                 }
                 else if (type == typeof(DateTime))
                 {
@@ -262,13 +322,6 @@ namespace CodeKing.SqlHarvester
             }
         }
 
-        public void Dispose()
-        {
-            if (writer != null)
-            {
-                writer.Close();
-                writer = null;
-            }
-        }
+        #endregion
     }
 }

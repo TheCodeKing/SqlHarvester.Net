@@ -1,19 +1,32 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Collections.ObjectModel;
-using System.Configuration;
 using System.Collections;
+using System.Configuration;
 
-namespace CodeKing.SqlHarvester
+namespace CodeKing.SqlHarvester.Core
 {
     [ConfigurationCollection(typeof(ScriptInfo), AddItemName = "ScriptInfo")]
     public class ScriptInfoCollection : ConfigurationElementCollection, IEnumerable
     {
-        public override bool IsReadOnly()
+        #region Properties
+
+        public override ConfigurationElementCollectionType CollectionType
         {
-            return false;
+            get
+            {
+                return ConfigurationElementCollectionType.BasicMap;
+            }
         }
+
+        protected override string ElementName
+        {
+            get
+            {
+                return "ScriptInfo";
+            }
+        }
+
+        #endregion
+
+        #region Indexers
 
         public new IScriptInfo this[string scriptInfo]
         {
@@ -22,6 +35,10 @@ namespace CodeKing.SqlHarvester
                 return (IScriptInfo)base.BaseGet(scriptInfo.ToLowerInvariant());
             }
         }
+
+        #endregion
+
+        #region Public Methods
 
         public void Add(IScriptInfo scriptInfo)
         {
@@ -39,20 +56,14 @@ namespace CodeKing.SqlHarvester
             return (value != null);
         }
 
-        public override ConfigurationElementCollectionType CollectionType
+        public override bool IsReadOnly()
         {
-            get
-            {
-                return ConfigurationElementCollectionType.BasicMap;
-            }
+            return false;
         }
-        protected override string ElementName
-        {
-            get
-            {
-                return "ScriptInfo";
-            }
-        }
+
+        #endregion
+
+        #region Methods
 
         protected override ConfigurationElement CreateNewElement()
         {
@@ -64,15 +75,17 @@ namespace CodeKing.SqlHarvester
             return new ScriptInfo();
         }
 
-        protected override bool IsElementName(string elementName)
-        {
-            return (elementName == "ScriptInfo");
-        }
-
         protected override object GetElementKey(ConfigurationElement scriptInfo)
         {
             ScriptInfo scriptInfoObj = (ScriptInfo)scriptInfo;
             return scriptInfoObj.Name.ToLowerInvariant();
         }
+
+        protected override bool IsElementName(string elementName)
+        {
+            return (elementName == "ScriptInfo");
+        }
+
+        #endregion
     }
 }

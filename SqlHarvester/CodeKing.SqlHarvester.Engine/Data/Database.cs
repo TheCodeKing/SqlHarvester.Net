@@ -1,23 +1,61 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Data;
 using System.Data.SqlClient;
-using System.Configuration;
 using System.Diagnostics;
-using CodeKing.SqlHarvester.Data;
+
+using CodeKing.SqlHarvester.Core;
+using CodeKing.SqlHarvester.Core.Data;
 
 namespace CodeKing.SqlHarvester.Data
 {
-	/// <summary>
+    /// <summary>
     /// A datalayer used for excecuting commands on the database. 
     /// </summary>
     internal class Database : IDataCommand
     {
+        #region Constants and Fields
+
+        private readonly int connectionTimeout = 120; // 2 mins
+
         private string connectionString;
+
+        private bool isTransaction;
+
         private IDbTransaction sqlTransaction;
-        private int connectionTimeout = 120; // 2 mins
-        private bool isTransaction = false;
+
+        #endregion
+
+        #region Constructors and Destructors
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DatabaseAccess"/> class.
+        /// </summary>
+        /// <param name="connectionString">The connection string.</param>
+        public Database(string connectionString)
+        {
+            this.connectionString = connectionString;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DatabaseAccess"/> class.
+        /// </summary>
+        /// <param name="connectionString">The connection string.</param>
+        /// <param name="connectionTimeout">The connection timeout.</param>
+        public Database(string connectionString, int connectionTimeout)
+        {
+            this.connectionString = connectionString;
+            this.connectionTimeout = connectionTimeout;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DatabaseAccess"/> class.
+        /// </summary>
+        public Database()
+        {
+        }
+
+        #endregion
+
+        #region Properties
 
         /// <summary>
         /// Gets the connection string.
@@ -27,7 +65,7 @@ namespace CodeKing.SqlHarvester.Data
         {
             get
             {
-                if (connectionString!=null && connectionString.Contains("Connection Timeout"))
+                if (connectionString != null && connectionString.Contains("Connection Timeout"))
                 {
                     return connectionString;
                 }
@@ -42,41 +80,9 @@ namespace CodeKing.SqlHarvester.Data
             }
         }
 
-        /// <summary>
-        /// Adds the parameter with value to the given command. This is becuase IDbCommand
-        /// does not include the AddWithValue method.
-        /// </summary>
-        /// <param name="command">The command.</param>
-        /// <param name="name">The name.</param>
-        /// <param name="value">The value.</param>
-        /// <returns></returns>
-        public virtual void AddParameterWithValue(IDbCommand command, string name, object value)
-        {
-            SqlCommand cmd = command as SqlCommand;
-            if (cmd==null)
-            {
-                throw new DatabaseException("The command object must be of type SqlCommand");
-            }
-            cmd.Parameters.AddWithValue(name, value);
-        }
+        #endregion
 
-        /// <summary>
-        /// Creates the concrete command instance to use with this implementation.
-        /// </summary>
-        /// <param name="commandText">The command text.</param>
-        /// <returns></returns>
-        public virtual IDbCommand CreateCommand(string commandText)
-        {
-            if (sqlTransaction != null)
-            {
-                SqlTransaction trans = sqlTransaction as SqlTransaction;
-                return new SqlCommand(commandText, trans.Connection, trans);
-            }
-            else
-            {
-                return new SqlCommand(commandText);
-            }
-        }
+        #region Public Methods
 
         /// <summary>
         /// Gets the connection.
@@ -87,32 +93,6 @@ namespace CodeKing.SqlHarvester.Data
             SqlConnection conn = new SqlConnection(ConnectionString);
             conn.Open();
             return conn;
-        }
-
-        private IDbConnection GetConnectionCheckTransaction()
-        {
-            // if should be transactional
-            if (isTransaction)
-            {
-                // if not yet a transaction start one
-                if (sqlTransaction == null)
-                {
-                    IDbConnection conn = GetConnection();
-                    sqlTransaction = conn.BeginTransaction();
-                    Trace.WriteLineIf(Tracer.Trace.TraceVerbose, "Begin transaction");
-                    return conn;
-                }
-                else
-                {
-                    // return existing transaction
-                    return sqlTransaction.Connection;
-                }
-            }
-            else
-            {
-                // create new connection
-                return GetConnection();
-            }
         }
 
         /// <summary>
@@ -131,29 +111,69 @@ namespace CodeKing.SqlHarvester.Data
             return conn;
         }
 
+        #endregion
+
+        #region Implemented Interfaces
+
+        #region IDataCommand
+
         /// <summary>
-        /// Executes the scalar.
+        /// Adds the parameter with value to the given command. This is becuase IDbCommand
+        /// does not include the AddWithValue method.
         /// </summary>
-        /// <param name="cmd">The CMD.</param>
+        /// <param name="command">The command.</param>
+        /// <param name="name">The name.</param>
+        /// <param name="value">The value.</param>
         /// <returns></returns>
-        public virtual object ExecuteScalar(IDbCommand cmd)
+        public virtual void AddParameterWithValue(IDbCommand command, string name, object value)
         {
-            IDbConnection myConn = null;
-            try
+            SqlCommand cmd = command as SqlCommand;
+            if (cmd == null)
             {
-                myConn = GetConnection(cmd);
-                return cmd.ExecuteScalar();
+                throw new DatabaseException("The command object must be of type SqlCommand");
             }
-            finally
+            cmd.Parameters.AddWithValue(name, value);
+        }
+
+        /// <summary>
+        /// Begins a new active transaction.
+        /// </summary>
+        public void BeginTransaction()
+        {
+            Trace.WriteLineIf(Tracer.Trace.TraceVerbose, "Set Transaction mode true");
+            isTransaction = true;
+        }
+
+        /// <summary>
+        /// Commits the active transaction.
+        /// </summary>
+        public void Commit()
+        {
+            if (sqlTransaction != null)
             {
-                if (!isTransaction)
-                {
-                    // only close connection if not in a transaction
-                    if (myConn != null && myConn.State == ConnectionState.Open)
-                    {
-                        myConn.Close();
-                    }
-                }
+                Trace.WriteLineIf(Tracer.Trace.TraceVerbose, "Commiting transaction");
+                sqlTransaction.Commit();
+                sqlTransaction.Dispose();
+                sqlTransaction = null;
+                isTransaction = false;
+            }
+        }
+
+        /// <summary>
+        /// Creates the concrete command instance to use with this implementation.
+        /// </summary>
+        /// <param name="commandText">The command text.</param>
+        /// <returns></returns>
+        public virtual IDbCommand CreateCommand(string commandText)
+        {
+            if (sqlTransaction != null)
+            {
+                SqlTransaction trans = sqlTransaction as SqlTransaction;
+                return new SqlCommand(commandText, trans.Connection, trans);
+            }
+            else
+            {
+                return new SqlCommand(commandText);
             }
         }
 
@@ -190,7 +210,6 @@ namespace CodeKing.SqlHarvester.Data
         /// <returns></returns>
         public virtual IDataReader ExecuteReader(IDbCommand cmd)
         {
-
             IDbConnection myConn = null;
             try
             {
@@ -223,59 +242,28 @@ namespace CodeKing.SqlHarvester.Data
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="DatabaseAccess"/> class.
+        /// Executes the scalar.
         /// </summary>
-        /// <param name="connectionString">The connection string.</param>
-        public Database(string connectionString)
+        /// <param name="cmd">The CMD.</param>
+        /// <returns></returns>
+        public virtual object ExecuteScalar(IDbCommand cmd)
         {
-            this.connectionString = connectionString;
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="DatabaseAccess"/> class.
-        /// </summary>
-        /// <param name="connectionString">The connection string.</param>
-        /// <param name="connectionTimeout">The connection timeout.</param>
-        public Database(string connectionString, int connectionTimeout)
-        {
-            this.connectionString = connectionString;
-            this.connectionTimeout = connectionTimeout;
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="DatabaseAccess"/> class.
-        /// </summary>
-        public Database()
-        {
-        }
-
-        /// <summary>
-        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-        /// </summary>
-        public void Dispose()
-        {
-            if (sqlTransaction != null)
+            IDbConnection myConn = null;
+            try
             {
-                Trace.WriteLineIf(Tracer.Trace.TraceVerbose, "Rolling back transaction");
-                sqlTransaction.Rollback();
-                sqlTransaction.Dispose();
-                sqlTransaction = null;
-                isTransaction = false;
+                myConn = GetConnection(cmd);
+                return cmd.ExecuteScalar();
             }
-        }
-
-        /// <summary>
-        /// Commits the active transaction.
-        /// </summary>
-        public void Commit()
-        {
-            if (sqlTransaction != null)
+            finally
             {
-                Trace.WriteLineIf(Tracer.Trace.TraceVerbose, "Commiting transaction");
-                sqlTransaction.Commit();
-                sqlTransaction.Dispose();
-                sqlTransaction = null;
-                isTransaction = false;
+                if (!isTransaction)
+                {
+                    // only close connection if not in a transaction
+                    if (myConn != null && myConn.State == ConnectionState.Open)
+                    {
+                        myConn.Close();
+                    }
+                }
             }
         }
 
@@ -294,13 +282,57 @@ namespace CodeKing.SqlHarvester.Data
             }
         }
 
+        #endregion
+
+        #region IDisposable
+
         /// <summary>
-        /// Begins a new active transaction.
+        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
         /// </summary>
-        public void BeginTransaction()
+        public void Dispose()
         {
-            Trace.WriteLineIf(Tracer.Trace.TraceVerbose, "Set Transaction mode true");
-            isTransaction = true;
+            if (sqlTransaction != null)
+            {
+                Trace.WriteLineIf(Tracer.Trace.TraceVerbose, "Rolling back transaction");
+                sqlTransaction.Rollback();
+                sqlTransaction.Dispose();
+                sqlTransaction = null;
+                isTransaction = false;
+            }
         }
+
+        #endregion
+
+        #endregion
+
+        #region Methods
+
+        private IDbConnection GetConnectionCheckTransaction()
+        {
+            // if should be transactional
+            if (isTransaction)
+            {
+                // if not yet a transaction start one
+                if (sqlTransaction == null)
+                {
+                    IDbConnection conn = GetConnection();
+                    sqlTransaction = conn.BeginTransaction();
+                    Trace.WriteLineIf(Tracer.Trace.TraceVerbose, "Begin transaction");
+                    return conn;
+                }
+                else
+                {
+                    // return existing transaction
+                    return sqlTransaction.Connection;
+                }
+            }
+            else
+            {
+                // create new connection
+                return GetConnection();
+            }
+        }
+
+        #endregion
     }
 }

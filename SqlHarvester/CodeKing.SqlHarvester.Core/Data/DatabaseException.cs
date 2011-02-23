@@ -1,14 +1,14 @@
 using System;
-using System.Collections.Generic;
-using System.Text;
 
-namespace CodeKing.SqlHarvester.Data
+namespace CodeKing.SqlHarvester.Core.Data
 {
     /// <summary>
     /// The exception which occurs when the Cms fails to access the database.
     /// </summary>
     public class DatabaseException : ApplicationException
     {
+        #region Constructors and Destructors
+
         /// <summary>
         /// Initializes a new instance of the <see cref="DatabaseException"/> class.
         /// </summary>
@@ -17,6 +17,7 @@ namespace CodeKing.SqlHarvester.Data
             : base(message)
         {
         }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="DatabaseException"/> class.
         /// </summary>
@@ -26,6 +27,7 @@ namespace CodeKing.SqlHarvester.Data
             : base(message, innerException)
         {
         }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="DatabaseException"/> class.
         /// </summary>
@@ -35,5 +37,7 @@ namespace CodeKing.SqlHarvester.Data
             : base(string.Format(formatString, args))
         {
         }
+
+        #endregion
     }
 }

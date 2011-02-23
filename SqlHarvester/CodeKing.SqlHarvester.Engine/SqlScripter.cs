@@ -1,25 +1,54 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.IO;
-using CodeKing.SqlHarvester.Data;
 using System.Data;
 using System.Data.SqlClient;
+
+using CodeKing.SqlHarvester.Core;
+using CodeKing.SqlHarvester.Core.Data;
+using CodeKing.SqlHarvester.Data;
 
 namespace CodeKing.SqlHarvester
 {
     internal class SqlScripter : ISqlScripter
     {
-        private IDataCommand database;
-        private ScriptInfo scriptInfo;
-        private DataSet tableInfoData;
+        #region Constants and Fields
+
+        private readonly IDataCommand database;
+
+        private readonly ScriptInfo scriptInfo;
+
         private bool? hasSeedIdentityKey;
+
+        private DataSet tableInfoData;
+
+        #endregion
+
+        #region Constructors and Destructors
+
+        public SqlScripter(IDataCommand database, ScriptInfo scriptInfo)
+        {
+            this.database = database;
+            this.scriptInfo = scriptInfo;
+            LoadSchema();
+        }
+
+        #endregion
+
+        #region Properties
+
+        public DataColumnCollection Columns
+        {
+            get
+            {
+                return tableInfoData.Tables["TableSchema"].Columns;
+            }
+        }
 
         public bool HasNonPrimaryKey
         {
             get
             {
-                return (Columns.Count>GetPrimaryKeys().Length);
+                return (Columns.Count > GetPrimaryKeys().Length);
             }
         }
 
@@ -27,7 +56,7 @@ namespace CodeKing.SqlHarvester
         {
             get
             {
-                return GetPrimaryKeys().Length>0;
+                return GetPrimaryKeys().Length > 0;
             }
         }
 
@@ -52,23 +81,36 @@ namespace CodeKing.SqlHarvester
             }
         }
 
-        public DataColumnCollection Columns
+        #endregion
+
+        #region Implemented Interfaces
+
+        #region IDisposable
+
+        public void Dispose()
         {
-            get
-            {
-                return tableInfoData.Tables["TableSchema"].Columns;
-            }
+        }
+
+        #endregion
+
+        #region ISqlScripter
+
+        public IDataReader ExecuteForContent(string query)
+        {
+            IDbCommand cmd = database.CreateCommand(query);
+            cmd.CommandType = CommandType.Text;
+            return database.ExecuteReader(cmd);
         }
 
         public string GetParameterName(DataColumn column)
         {
-            return string.Concat("@", column.ColumnName.Replace(" ","_").Trim()); ;
+            return string.Concat("@", column.ColumnName.Replace(" ", "_").Trim());
         }
 
         public string GetSqlDataType(DataColumn column)
         {
             DataRow row = FindRow(column);
-            if (row!=null)
+            if (row != null)
             {
                 string type = Convert.ToString(row["ColumnType"]).Trim();
                 string prec = Convert.ToString(row["Precision"]).Trim();
@@ -105,37 +147,29 @@ namespace CodeKing.SqlHarvester
                         {
                             return string.Concat(type, "(", length, ")");
                         }
-                        else
-                        {
-                            return string.Concat(type, "(", prec, ",", scale, ")");
-                        }
+                        return string.Concat(type, "(", prec, ",", scale, ")");
                 }
             }
             return "";
         }
 
-        private string[] GetPrimaryKeys()
+        public string GetTest(DataColumn column)
         {
-            List<string> keys = new List<string>();
-            DataColumn[] columns = tableInfoData.Tables["TableSchema"].PrimaryKey;
-            foreach (DataColumn col in columns)
+            if (!column.AllowDBNull)
             {
-                keys.Add(col.ColumnName);
+                return string.Format("[{0}]={1}", column, GetParameterName(column));
             }
-            return keys.ToArray();
+            return string.Format("[{0}]={1}", column, GetParameterName(column));
         }
 
-        private DataRow FindRow(DataColumn column)
+        public bool IsActive(DataColumn column)
         {
-            DataRow[] rows = tableInfoData.Tables["ColumnTypeData"].Select(string.Format("ColumnName='{0}'", column.ColumnName));
-            if (rows.Length == 1)
+            DataRow row = FindRow(column);
+            if (row != null)
             {
-                return rows[0];
+                return !((bool)row["IsComputed"]) && ((string)row["ColumnType"]).ToLowerInvariant() != "timestamp";
             }
-            else
-            {
-                return null;
-            }
+            return false;
         }
 
         public bool IsPrimaryKey(DataColumn column)
@@ -150,56 +184,55 @@ namespace CodeKing.SqlHarvester
             return false;
         }
 
-        public bool IsActive(DataColumn column)
+        #endregion
+
+        #endregion
+
+        #region Methods
+
+        private DataRow FindRow(DataColumn column)
         {
-            DataRow row = FindRow(column);
-            if (row!=null)
+            DataRow[] rows =
+                tableInfoData.Tables["ColumnTypeData"].Select(string.Format("ColumnName='{0}'", column.ColumnName));
+            if (rows.Length == 1)
             {
-                return !((bool)row["IsComputed"]) && ((string)row["ColumnType"]).ToLowerInvariant() != "timestamp"; 
+                return rows[0];
             }
-            else
-            {
-                return false;
-            }
+            return null;
         }
 
-        public string GetTest(DataColumn column)
+        private string[] GetPrimaryKeys()
         {
-            if (!column.AllowDBNull)
+            List<string> keys = new List<string>();
+            DataColumn[] columns = tableInfoData.Tables["TableSchema"].PrimaryKey;
+            foreach (DataColumn col in columns)
             {
-                return string.Format("[{0}]={1}", column, GetParameterName(column));
+                keys.Add(col.ColumnName);
             }
-            else
-            {
-                return string.Format("[{0}]={1}", column, GetParameterName(column));
-            }
-
-
-        }
-
-        public SqlScripter(IDataCommand database, ScriptInfo scriptInfo)
-        {
-            this.database = database;
-            this.scriptInfo = scriptInfo;
-            LoadSchema();
+            return keys.ToArray();
         }
 
         private void LoadSchema()
         {
-            this.tableInfoData = new DataSet();
+            tableInfoData = new DataSet();
 
             DataTable tableSchema = new DataTable("TableSchema");
-            this.tableInfoData.Tables.Add(tableSchema);
+            tableInfoData.Tables.Add(tableSchema);
 
-            using (SqlDataAdapter adapter = new SqlDataAdapter(string.Format("Select * From {0}", scriptInfo.QualifiedName), database.ConnectionString))
+            using (
+                SqlDataAdapter adapter = new SqlDataAdapter(
+                    string.Format("Select * From {0}", scriptInfo.QualifiedName), database.ConnectionString))
             {
                 adapter.FillSchema(tableSchema, SchemaType.Source);
             }
 
             DataTable columnTypeData = new DataTable("ColumnTypeData");
-            this.tableInfoData.Tables.Add(columnTypeData);
+            tableInfoData.Tables.Add(columnTypeData);
 
-            string query = string.Format("select c.Name as ColumnName, c.Is_Identity as IsIdentity, c.Is_Computed IsComputed, t.Name as ColumnType, c.Max_Length, c.Scale, c.Precision From sys.columns c inner join sys.types t on c.user_type_id = t.user_type_id Where Object_Name(c.object_id) = '{0}'", scriptInfo.Name);
+            string query =
+                string.Format(
+                    "select c.Name as ColumnName, c.Is_Identity as IsIdentity, c.Is_Computed IsComputed, t.Name as ColumnType, c.Max_Length, c.Scale, c.Precision From sys.columns c inner join sys.types t on c.user_type_id = t.user_type_id Where Object_Name(c.object_id) = '{0}'",
+                    scriptInfo.Name);
             using (SqlDataAdapter adapter = new SqlDataAdapter(query, database.ConnectionString))
             {
                 adapter.Fill(columnTypeData);
@@ -210,7 +243,7 @@ namespace CodeKing.SqlHarvester
         {
             if (type.StartsWith("n"))
             {
-                int l = 0;
+                int l;
                 if (int.TryParse(length, out l))
                 {
                     l = l / 2;
@@ -220,15 +253,6 @@ namespace CodeKing.SqlHarvester
             return length;
         }
 
-        public IDataReader ExecuteForContent(string query)
-        {
-            IDbCommand cmd = database.CreateCommand(query);
-            cmd.CommandType = CommandType.Text;
-            return database.ExecuteReader(cmd);
-        }
-
-        public void Dispose()
-        {
-        }
-   }
+        #endregion
+    }
 }

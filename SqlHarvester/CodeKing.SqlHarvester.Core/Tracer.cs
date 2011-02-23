@@ -1,12 +1,13 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Diagnostics;
 
-namespace CodeKing.SqlHarvester
+namespace CodeKing.SqlHarvester.Core
 {
     internal static class Tracer
     {
+        #region Constants and Fields
+
         public static TraceSwitch Trace = new TraceSwitch("SqlHarvester", "SqlHarvester trace switch");
+
+        #endregion
     }
 }

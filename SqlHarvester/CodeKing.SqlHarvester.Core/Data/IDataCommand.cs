@@ -1,25 +1,24 @@
 using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Data.SqlClient;
 using System.Data;
 
-namespace CodeKing.SqlHarvester.Data
+namespace CodeKing.SqlHarvester.Core.Data
 {
     /// <summary>
     /// The abstracted command object used for passing instructions to the data layer.
     /// </summary>
     public interface IDataCommand : IDisposable
     {
+        #region Properties
+
         /// <summary>
         /// Gets the connection string.
         /// </summary>
         /// <value>The connection string.</value>
-        string ConnectionString
-        {
-            get;
-            set;
-        }
+        string ConnectionString { get; set; }
+
+        #endregion
+
+        #region Public Methods
 
         /// <summary>
         /// Adds the parameter with value to the given command. This is becuase IDbCommand
@@ -31,11 +30,28 @@ namespace CodeKing.SqlHarvester.Data
         void AddParameterWithValue(IDbCommand command, string name, object value);
 
         /// <summary>
+        /// Begins a new active transaction.
+        /// </summary>
+        void BeginTransaction();
+
+        /// <summary>
+        /// Commits the active transaction.
+        /// </summary>
+        void Commit();
+
+        /// <summary>
         /// Creates the concrete command object to use with this instance.
         /// </summary>
         /// <param name="commandText">The command text.</param>
         /// <returns></returns>
         IDbCommand CreateCommand(string commandText);
+
+        /// <summary>
+        /// Executes the non query.
+        /// </summary>
+        /// <param name="cmd">The CMD.</param>
+        /// <returns></returns>
+        int ExecuteNonQuery(IDbCommand cmd);
 
         /// <summary>
         /// Executes the reader.
@@ -52,25 +68,10 @@ namespace CodeKing.SqlHarvester.Data
         object ExecuteScalar(IDbCommand cmd);
 
         /// <summary>
-        /// Executes the non query.
-        /// </summary>
-        /// <param name="cmd">The CMD.</param>
-        /// <returns></returns>
-        int ExecuteNonQuery(IDbCommand cmd);
-
-        /// <summary>
-        /// Commits the active transaction.
-        /// </summary>
-        void Commit();
-
-        /// <summary>
         /// Rolls back the active transaction.
         /// </summary>
         void Rollback();
 
-        /// <summary>
-        /// Begins a new active transaction.
-        /// </summary>
-        void BeginTransaction();
+        #endregion
     }
 }

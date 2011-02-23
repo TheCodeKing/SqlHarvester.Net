@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Configuration;
-using System.IO;
-using System.Collections.ObjectModel;
 
-namespace CodeKing.SqlHarvester.Configuration
+namespace CodeKing.SqlHarvester.Core.Configuration
 {
     /// <summary>
     /// The application settings which takes default values for the configurration file, but
@@ -14,16 +9,7 @@ namespace CodeKing.SqlHarvester.Configuration
     /// </summary>
     public class HarvestConfigurationSection : ConfigurationSection
     {
-        /// <summary>
-        /// Gets a value indicating whether the <see cref="T:System.Configuration.ConfigurationElement"></see> object is read-only.
-        /// </summary>
-        /// <returns>
-        /// true if the <see cref="T:System.Configuration.ConfigurationElement"></see> object is read-only; otherwise, false.
-        /// </returns>
-        public override bool IsReadOnly()
-        {
-            return false;
-        }
+        #region Indexers
 
         /// <summary>
         /// Validates this instance.
@@ -57,7 +43,9 @@ namespace CodeKing.SqlHarvester.Configuration
                 {
                     if (value.GetType() != found.Type)
                     {
-                        throw new ConfigurationErrorsException(string.Format("type mismatch setting {0}={1}, value is not of type {2}", key, value, found.Type.Name));
+                        throw new ConfigurationErrorsException(
+                            string.Format(
+                                "type mismatch setting {0}={1}, value is not of type {2}", key, value, found.Type.Name));
                     }
                     base[found] = value;
                 }
@@ -65,10 +53,48 @@ namespace CodeKing.SqlHarvester.Configuration
                 {
                     key = key.ToLowerInvariant();
                     base.Properties.Add(new ConfigurationProperty(key, typeof(string)));
-                    base[key] = (value as string);
+                    base[key] = (value);
                 }
             }
         }
+
+        #endregion
+
+        #region Public Methods
+
+        /// <summary>
+        /// Determines whether the dictionary contains the specified key.
+        /// </summary>
+        /// <param name="key">The key.</param>
+        /// <returns>
+        /// 	<c>true</c> if the specified key contains key; otherwise, <c>false</c>.
+        /// </returns>
+        public bool ContainsKey(string key)
+        {
+            if (GetConfigurationProperty(key) == null)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether the <see cref="T:System.Configuration.ConfigurationElement"></see> object is read-only.
+        /// </summary>
+        /// <returns>
+        /// true if the <see cref="T:System.Configuration.ConfigurationElement"></see> object is read-only; otherwise, false.
+        /// </returns>
+        public override bool IsReadOnly()
+        {
+            return false;
+        }
+
+        #endregion
+
+        #region Methods
 
         /// <summary>
         /// Gets the configuration property.
@@ -89,16 +115,6 @@ namespace CodeKing.SqlHarvester.Configuration
         }
 
         /// <summary>
-        /// Sets the configuration value without first verifying that the value exists.
-        /// </summary>
-        /// <param name="key">The key.</param>
-        /// <param name="value">The value.</param>
-        protected void SetConfigurationValue(string key, object value)
-        {
-            base[key] = value;
-        }
-
-        /// <summary>
         /// Gets the configuration value without first verifying that the value exists.
         /// </summary>
         /// <param name="key">The key.</param>
@@ -109,22 +125,15 @@ namespace CodeKing.SqlHarvester.Configuration
         }
 
         /// <summary>
-        /// Determines whether the dictionary contains the specified key.
+        /// Sets the configuration value without first verifying that the value exists.
         /// </summary>
         /// <param name="key">The key.</param>
-        /// <returns>
-        /// 	<c>true</c> if the specified key contains key; otherwise, <c>false</c>.
-        /// </returns>
-        public bool ContainsKey(string key)
+        /// <param name="value">The value.</param>
+        protected void SetConfigurationValue(string key, object value)
         {
-            if (GetConfigurationProperty(key) == null)
-            {
-                return false;
-            }
-            else
-            {
-                return true;
-            }
+            base[key] = value;
         }
+
+        #endregion
     }
 }

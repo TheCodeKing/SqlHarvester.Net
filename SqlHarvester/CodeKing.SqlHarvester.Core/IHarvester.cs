@@ -1,19 +1,20 @@
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.IO;
 
-namespace CodeKing.SqlHarvester
+namespace CodeKing.SqlHarvester.Core
 {
     public interface IHarvester : IDisposable
     {
+        #region Public Methods
 
-        FileInfo WriteHeader();
+        void Cancel();
 
         bool WriteContent();
 
         void WriteFooter();
 
-        void Cancel();
+        FileInfo WriteHeader();
+
+        #endregion
     }
 }

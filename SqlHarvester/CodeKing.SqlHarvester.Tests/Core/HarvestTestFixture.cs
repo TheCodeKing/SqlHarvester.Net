@@ -1,21 +1,39 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
-using NUnit.Framework;
-using CodeKing.SqlHarvester;
-using Rhino.Mocks;
-using System.IO;
+using CodeKing.SqlHarvester.Core;
+using CodeKing.SqlHarvester.Core.Data;
 using CodeKing.SqlHarvester.Data;
+
+using NUnit.Framework;
+
+using Rhino.Mocks;
 
 namespace CodeKing.SqlHarvester.Tests.Core
 {
     [TestFixture]
     public class HarvestTestFixture
     {
-        private MockRepository mocker;
-        private ISqlScripter scripter;
-        private SqlScripterFactory factory;
+        #region Constants and Fields
+
         private IDataCommand database;
+
+        private SqlScripterFactory factory;
+
+        private MockRepository mocker;
+
+        private ISqlScripter scripter;
+
+        #endregion
+
+        #region Public Methods
+
+        [Test]
+        public void GetFileTest()
+        {
+        }
+
+        [Test]
+        public void GetInvalidFileTest()
+        {
+        }
 
         [SetUp]
         public void SetUp()
@@ -27,7 +45,6 @@ namespace CodeKing.SqlHarvester.Tests.Core
             //harvestor = new Harvestor(factory, );
         }
 
-
         [TearDown]
         public void TearDown()
         {
@@ -37,33 +54,20 @@ namespace CodeKing.SqlHarvester.Tests.Core
         }
 
         [Test]
-        public void WriteHeaderTest()
-        {
-
-        }
-
-
-        [Test]
         public void WriteContentTest()
         {
-
         }
 
         [Test]
         public void WriteFooterTest()
         {
-
         }
 
         [Test]
-        public void GetFileTest()
+        public void WriteHeaderTest()
         {
         }
 
-        [Test]
-        public void GetInvalidFileTest()
-        {
-
-        }
+        #endregion
     }
 }

@@ -1,14 +1,15 @@
 using System;
-using System.Collections.Generic;
-using System.Text;
-using System.IO;
 
-namespace CodeKing.SqlHarvester
+namespace CodeKing.SqlHarvester.Core
 {
     public interface ISeeder : IDisposable
     {
+        #region Public Methods
+
         string[] GetFiles();
 
         void ImportFile(string file);
+
+        #endregion
     }
 }
