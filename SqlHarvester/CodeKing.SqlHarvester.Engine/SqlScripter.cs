@@ -79,7 +79,7 @@ namespace CodeKing.SqlHarvester
                 }
                 length = ParseLength(type, length);
                 string scale = Convert.ToString(row["Scale"]).Trim();
-                bool hasPrec = (string.IsNullOrEmpty(prec) && prec != "0");
+                bool hasPrec = (!string.IsNullOrEmpty(prec) && prec != "0");
                 switch (type)
                 {
                     case "int":
