@@ -1,0 +1,13 @@
+Project Description
+-------------------
+SqlHarvester is a free command-line based scripting engine written in .Net. It enables the import/export of database content across disconnected Sql Server databases.
+
+Features
+--------
+* Compatible with Sql Server 2000/2005/2008
+* Update/insert of data based on primary keys
+* Runtime enable/disable of constraints
+* Handles unicode & binary data types
+* Script subset of data from multiple tables
+* Transaction based data import
+* Command-line based interface, integrates with build scripts
