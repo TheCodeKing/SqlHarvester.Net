@@ -1,0 +1,14 @@
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SqlHarvesterSeeder') AND type in (N'P', N'PC'))
+	DROP PROCEDURE dbo.SqlHarvesterSeeder
+GO
+
+CREATE PROCEDURE dbo.SqlHarvesterSeeder
+
+{parameters}
+
+AS
+
+	INSERT INTO {tablename} ({columns})
+	VALUES ({values})
+
+GO
